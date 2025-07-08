@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Driver Panel - Live Location Update</title>
+  <title>Driver Panel - लाइव लोकेशन अपडेट</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; text-align: center; background: #f9f9f9; }
@@ -11,8 +11,9 @@
   </style>
 </head>
 <body>
-  <h2>🚍 Driver Panel - Update Location</h2>
+  <h2>🚍 Driver Panel - लोकेशन अपडेट</h2>
 
+  <!-- 🔐 लॉगिन फॉर्म -->
   <div id="loginBox">
     <input type="text" id="driverId" placeholder="Driver ID" />
     <input type="password" id="driverPass" placeholder="Password" />
@@ -20,21 +21,22 @@
     <p id="loginError" style="color:red;"></p>
   </div>
 
+  <!-- ✅ लॉगिन के बाद पैनल -->
   <div id="driverPanel" style="display:none;">
     <p>Welcome, <span id="driverName"></span>!</p>
-    <button onclick="startTracking()">Start Location Update</button>
-    <button onclick="stopTracking()" disabled id="stopBtn">Stop Location Update</button>
-    <button id="logoutBtn" onclick="logoutDriver()">Logout</button>
+    <button onclick="startTracking()">🚀 लोकेशन अपडेट शुरू करें</button>
+    <button onclick="stopTracking()" disabled id="stopBtn">🛑 लोकेशन बंद करें</button>
+    <button id="logoutBtn" onclick="logoutDriver()">🚪 Logout</button>
     <p id="status"></p>
   </div>
 
-  <!-- Firebase SDK -->
+  <!-- 🔥 Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
   <script>
-    // Firebase Config - अपनी कॉन्फिग यहाँ डालें
+    // 🔧 Firebase Config (अपना कॉन्फ़िग रखें)
     const firebaseConfig = {
       apiKey: "AIzaSyA01RW_-AK7DzZp9sd92GDZpExIVvMVbBY",
       authDomain: "ringasbustracker.firebaseapp.com",
@@ -52,7 +54,9 @@
     let watchId = null;
     let currentDriverId = null;
     let driverRoute = null;
+    let lastUpdateTime = 0;
 
+    // 🔐 ड्राइवर लॉगिन फंक्शन
     function loginDriver() {
       const id = document.getElementById("driverId").value.trim();
       const pass = document.getElementById("driverPass").value.trim();
@@ -60,7 +64,7 @@
       const errorP = document.getElementById("loginError");
 
       if (!id || !pass) {
-        errorP.innerText = "Driver ID और Password भरें";
+        errorP.innerText = "कृपया Driver ID और Password भरें।";
         return;
       }
 
@@ -72,7 +76,6 @@
           document.getElementById("driverPanel").style.display = "block";
           document.getElementById("driverName").innerText = currentDriverId;
 
-          // ड्राइवर का रूट लाएं ताकि लोकेशन उसी रूट में अपडेट हो
           db.ref("drivers/" + currentDriverId + "/route").once("value").then(snapshot => {
             driverRoute = snapshot.val();
             if (!driverRoute) {
@@ -85,49 +88,64 @@
         });
     }
 
+    // 🚀 लोकेशन ट्रैकिंग शुरू करें
     function startTracking() {
       if (!navigator.geolocation) {
-        alert("यह ब्राउज़र लोकेशन सपोर्ट नहीं करता।");
+        alert("आपका ब्राउज़र लोकेशन सपोर्ट नहीं करता।");
         return;
       }
       if (!driverRoute) {
-        alert("रूट सेट नहीं है, लोकेशन अपडेट नहीं कर सकते।");
+        alert("रूट सेट नहीं है।");
         return;
       }
 
-      document.getElementById("status").innerText = "लोकेशन ट्रैकिंग शुरू हुई...";
+      document.getElementById("status").innerText = "🔄 लोकेशन ट्रैकिंग शुरू...";
       document.getElementById("stopBtn").disabled = false;
 
+      // 📍 लोकेशन लगातार भेजें हर 2 सेकंड में
       watchId = navigator.geolocation.watchPosition(position => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
+        const now = Date.now();
+        if (now - lastUpdateTime >= 2000) {
+          lastUpdateTime = now;
 
-        // Firebase में लोकेशन अपडेट करें
-        db.ref(driverRoute).set({
-          lat: lat,
-          lng: lng,
-          updatedAt: Date.now()
-        });
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
 
-        document.getElementById("status").innerText = `लोकेशन अपडेट: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          const locationData = {
+            lat: lat,
+            lng: lng,
+            updatedAt: new Date().toLocaleString()
+          };
+
+          // ✅ वर्तमान लोकेशन सेव करें
+          db.ref(driverRoute + "/current").set(locationData);
+
+          // 🕒 इतिहास (history) में सेव करें
+          const timestamp = now;
+          db.ref(driverRoute + "/history/" + timestamp).set(locationData);
+
+          document.getElementById("status").innerText = `📍 अपडेट: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        }
       }, error => {
-        document.getElementById("status").innerText = "लोकेशन अपडेट में समस्या: " + error.message;
+        document.getElementById("status").innerText = "❌ लोकेशन में समस्या: " + error.message;
       }, {
         enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
+        timeout: 5000,
+        maximumAge: 0
       });
     }
 
+    // 🛑 लोकेशन ट्रैकिंग बंद करें
     function stopTracking() {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
-        document.getElementById("status").innerText = "लोकेशन अपडेट बंद कर दिया गया।";
+        document.getElementById("status").innerText = "🛑 लोकेशन ट्रैकिंग बंद कर दी गई।";
         document.getElementById("stopBtn").disabled = true;
       }
     }
 
+    // 🚪 ड्राइवर लॉगआउट
     function logoutDriver() {
       stopTracking();
       auth.signOut().then(() => {
